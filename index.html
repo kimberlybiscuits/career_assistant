@@ -1,0 +1,572 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle, Circle, Target, TrendingUp, Calendar, Trophy, Plus, X, Clock, BookOpen, Star, Zap, Coffee, Sun, Moon, BarChart3, Users, FileText, Brain, AlertCircle, ChevronRight, Play, Pause, RotateCcw, MessageCircle, Send, ChevronLeft, Settings } from 'lucide-react';
+
+const CareerCoach = () => {
+  const [activeTab, setActiveTab] = useState('briefing');
+  const [chatOpen, setChatOpen] = useState(false);
+  
+  // Core state
+  const [tasks, setTasks] = useState([
+    { 
+      id: 1, 
+      text: 'Complete pandas data cleaning tutorial', 
+      category: 'python-skills', 
+      priority: 'high', 
+      timeBlock: 'morning',
+      estimatedTime: '90 min',
+      completed: false,
+      skillArea: 'Data Manipulation',
+      blockers: []
+    },
+    { 
+      id: 2, 
+      text: 'Practice matplotlib visualization exercises', 
+      category: 'python-skills', 
+      priority: 'high', 
+      timeBlock: 'morning',
+      estimatedTime: '60 min',
+      completed: false,
+      skillArea: 'Data Visualization',
+      blockers: ['Need to finish pandas basics first']
+    },
+    { 
+      id: 3, 
+      text: 'Research 3 business datasets on Kaggle', 
+      category: 'portfolio', 
+      priority: 'medium', 
+      timeBlock: 'afternoon',
+      estimatedTime: '45 min',
+      completed: false,
+      skillArea: 'Project Research',
+      blockers: ['Need solid pandas skills first']
+    },
+    { 
+      id: 4, 
+      text: 'Draft LinkedIn post about career transition', 
+      category: 'networking', 
+      priority: 'low', 
+      timeBlock: 'afternoon',
+      estimatedTime: '30 min',
+      completed: false,
+      skillArea: 'Personal Branding',
+      blockers: []
+    }
+  ]);
+  
+  const [skills, setSkills] = useState([
+    { name: 'Python - Pandas', level: 35, target: 80, category: 'Technical', trending: true, urgency: 'high' },
+    { name: 'Python - Matplotlib/Seaborn', level: 25, target: 75, category: 'Technical', trending: true, urgency: 'medium' },
+    { name: 'Tableau/Power BI', level: 10, target: 70, category: 'Technical', trending: false, urgency: 'low' },
+    { name: 'Data Storytelling', level: 45, target: 85, category: 'Strategic', trending: true, urgency: 'medium' },
+    { name: 'Portfolio Building', level: 20, target: 90, category: 'Professional', trending: false, urgency: 'low' },
+    { name: 'Networking & Outreach', level: 30, target: 75, category: 'Professional', trending: false, urgency: 'low' }
+  ]);
+  
+  const [focusSession, setFocusSession] = useState({
+    active: false,
+    startTime: null,
+    currentTask: null,
+    sessionLength: 90,
+    timeRemaining: 90 * 60
+  });
+  
+  const [stats, setStats] = useState({
+    streak: 5,
+    totalPoints: 180,
+    weeklyGoal: 20,
+    weeklyProgress: 12,
+    lastActivity: new Date().toISOString().split('T')[0]
+  });
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: 1,
+      type: 'assistant',
+      content: "Hi! I'm your career transition coach. I can help you plan your daily work, troubleshoot blockers, and adjust your roadmap based on your actual progress. What would you like to discuss?",
+      timestamp: new Date()
+    }
+  ]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const chatEndRef = useRef(null);
+  const messageInputRef = useRef(null);
+
+  // Timer logic
+  useEffect(() => {
+    let timer;
+    if (focusSession.active && focusSession.timeRemaining > 0) {
+      timer = setInterval(() => {
+        setFocusSession(prev => ({
+          ...prev,
+          timeRemaining: prev.timeRemaining - 1
+        }));
+      }, 1000);
+    } else if (focusSession.active && focusSession.timeRemaining <= 0) {
+      setFocusSession(prev => ({ ...prev, active: false }));
+    }
+    return () => clearInterval(timer);
+  }, [focusSession.active, focusSession.timeRemaining]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  const getCurrentTimeBlock = () => {
+    const hour = new Date().getHours();
+    if (hour >= 8 && hour < 14) return 'morning';
+    if (hour >= 14 && hour < 18) return 'afternoon';
+    return 'evening';
+  };
+
+  const startFocusSession = (task) => {
+    const sessionMinutes = parseInt(task.estimatedTime) || 90;
+    setFocusSession({
+      active: true,
+      startTime: new Date(),
+      currentTask: task,
+      sessionLength: sessionMinutes,
+      timeRemaining: sessionMinutes * 60
+    });
+    
+    // Add chat message about starting focus
+    addChatMessage('assistant', `Great! You're starting a focus session on "${task.text}". I'll check in when you're done. Remember: progress over perfection! 🎯`);
+  };
+
+  const toggleTask = (taskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        const newCompleted = !task.completed;
+        if (newCompleted) {
+          setStats(prev => ({
+            ...prev,
+            totalPoints: prev.totalPoints + 10,
+            weeklyProgress: prev.weeklyProgress + 1
+          }));
+          
+          // Add celebration message
+          addChatMessage('assistant', `🎉 Nice work completing "${task.text}"! That's 10 points earned. How did it go? Any insights or blockers to discuss?`);
+        }
+        return { ...task, completed: newCompleted };
+      }
+      return task;
+    }));
+  };
+
+  const addChatMessage = (type, content) => {
+    const message = {
+      id: Date.now(),
+      type,
+      content,
+      timestamp: new Date()
+    };
+    setChatMessages(prev => [...prev, message]);
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    const userMessage = newMessage.trim();
+    setNewMessage('');
+    addChatMessage('user', userMessage);
+    setIsTyping(true);
+
+    // Simulate AI processing delay
+    setTimeout(() => {
+      const response = generateCoachResponse(userMessage);
+      addChatMessage('assistant', response);
+      setIsTyping(false);
+    }, 1000 + Math.random() * 2000);
+  };
+
+  const generateCoachResponse = (userMessage) => {
+    const message = userMessage.toLowerCase();
+    
+    // Get current context
+    const completedTasksToday = tasks.filter(t => t.completed).length;
+    const currentTimeBlock = getCurrentTimeBlock();
+    const blockedTasks = tasks.filter(t => t.blockers.length > 0 && !t.completed);
+    const urgentSkills = skills.filter(s => s.urgency === 'high');
+    
+    // Pattern matching for different types of queries
+    if (message.includes('stuck') || message.includes('struggling') || message.includes('difficult')) {
+      return `I understand you're facing some challenges. Let's break this down: What specific part is giving you trouble? Sometimes when we're stuck, it helps to:\n\n• Take a step back and review the fundamentals\n• Look for alternative learning resources\n• Break the problem into smaller pieces\n• Consider if there's a prerequisite skill missing\n\nBased on your current progress, I see you have ${blockedTasks.length} tasks with blockers. Want to discuss those?`;
+    }
+    
+    if (message.includes('what should i') || message.includes('what next') || message.includes('priorities')) {
+      if (currentTimeBlock === 'morning') {
+        return `Perfect timing for your morning planning! Based on your energy levels and current progress:\n\n🎯 **High Priority**: ${urgentSkills.map(s => s.name).join(', ')}\n\nI'd recommend starting with "${tasks.filter(t => !t.completed && t.timeBlock === 'morning')[0]?.text}" since it builds the foundation for your other work.\n\nYou've completed ${completedTasksToday} tasks today. How are you feeling energy-wise?`;
+      } else {
+        return `For this ${currentTimeBlock}, I suggest lighter tasks like networking or project research. You've already done the heavy lifting this morning with ${completedTasksToday} completed tasks.\n\nWant to tackle some of those afternoon tasks, or do you need to discuss any morning blockers first?`;
+      }
+    }
+    
+    if (message.includes('portfolio') || message.includes('project')) {
+      const pandasSkill = skills.find(s => s.name.includes('Pandas'));
+      if (pandasSkill && pandasSkill.level < 60) {
+        return `I see you're thinking about portfolio work! However, I notice your pandas skills are at ${pandasSkill.level}% and you have tasks blocked by this. I'd recommend getting pandas to at least 60% before diving into portfolio projects.\n\nThis isn't about perfection - it's about having enough foundation to create quality work without getting frustrated. What do you think about focusing on pandas first?`;
+      } else {
+        return `Great timing for portfolio work! With your current skill level, you're ready to start applying what you've learned. I'd suggest starting with a simple business dataset analysis.\n\nWhat type of project interests you most - business analytics or policy analysis?`;
+      }
+    }
+    
+    if (message.includes('motivation') || message.includes('tired') || message.includes('overwhelm')) {
+      return `I hear you. Career transitions are marathons, not sprints, and it's completely normal to have challenging days.\n\n✨ **Remember**: You've maintained a ${stats.streak}-day streak and earned ${stats.totalPoints} points. That's real progress!\n\n🎯 **Small wins matter**: Even 30 minutes of focused work moves you forward.\n\n💪 **You're building something important**: The data insights world needs people who can bridge business and policy like you can.\n\nWhat would feel manageable right now? We can always adjust the plan.`;
+    }
+    
+    if (message.includes('roadmap') || message.includes('plan') || message.includes('timeline')) {
+      return `Let's review your roadmap! Based on your current progress:\n\n**Week 1-2 Focus**: Master pandas fundamentals (currently ${skills.find(s => s.name.includes('Pandas'))?.level}%)\n**Week 3-4**: Apply pandas to real datasets + basic visualization\n**Month 2**: Portfolio projects + advanced visualization\n**Month 3**: Positioning + market testing\n\nBut here's the key: this should adapt based on your actual progress. If you master pandas faster, we accelerate. If you hit blockers, we adjust.\n\nHow does this timeline feel given your current experience?`;
+    }
+    
+    // Default helpful response
+    return `I'm here to help you navigate your career transition strategically. I can assist with:\n\n📋 **Daily planning** - What should you focus on today?\n🚧 **Problem solving** - Stuck on something specific?\n🎯 **Roadmap adjustments** - Should we change priorities?\n📈 **Progress review** - How are you tracking vs goals?\n💡 **Industry insights** - What's trending in your field?\n\nWhat would be most helpful right now?`;
+  };
+
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTasksForTimeBlock = (timeBlock) => tasks.filter(task => task.timeBlock === timeBlock && !task.completed);
+  const getCompletedToday = () => tasks.filter(task => task.completed).length;
+
+  // Chat Component
+  const ChatPanel = () => (
+    <div className={`fixed right-0 top-0 h-full bg-white shadow-xl border-l border-gray-200 transition-transform duration-300 ${chatOpen ? 'translate-x-0' : 'translate-x-full'} w-96 z-50`}>
+      <div className="flex flex-col h-full">
+        {/* Chat Header */}
+        <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Brain className="w-5 h-5" />
+            <div>
+              <h3 className="font-semibold">Career Coach</h3>
+              <p className="text-xs text-blue-100">Strategic guidance & planning</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setChatOpen(false)}
+            className="text-blue-100 hover:text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {chatMessages.map(message => (
+            <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] p-3 rounded-lg ${
+                message.type === 'user' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-100 text-gray-900'
+              }`}>
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <p className={`text-xs mt-1 ${
+                  message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
+                }`}>
+                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+          ))}
+          
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 text-gray-900 p-3 rounded-lg">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Message Input */}
+        <div className="border-t border-gray-200 p-4">
+          <div className="flex gap-2">
+            <input
+              ref={messageInputRef}
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder="Ask about priorities, blockers, roadmap..."
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || isTyping}
+              className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Morning Briefing with chat integration
+  const MorningBriefing = () => {
+    const morningTasks = getTasksForTimeBlock('morning');
+    const urgentSkills = skills.filter(s => s.urgency === 'high');
+    const blockedTasks = tasks.filter(t => t.blockers.length > 0 && !t.completed);
+    
+    const motivationalMessages = [
+      "Your future self is counting on what you do today. Let's build something incredible.",
+      "Every expert was once a beginner. Every pro was once an amateur. Time to level up.",
+      "The data insights world is waiting for your unique perspective. Let's get to work.",
+      "Small daily improvements compound into major breakthroughs. Start strong today."
+    ];
+    
+    const todaysMessage = motivationalMessages[new Date().getDate() % motivationalMessages.length];
+
+    return (
+      <div className="space-y-6">
+        {/* Motivational Header with Chat CTA */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <Sun className="w-6 h-6" />
+              <h2 className="text-xl font-bold">Good Morning, Data Strategist</h2>
+            </div>
+            <button 
+              onClick={() => setChatOpen(true)}
+              className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-md text-sm flex items-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Plan Today
+            </button>
+          </div>
+          <p className="text-blue-100 mb-4">{todaysMessage}</p>
+          <div className="bg-white/10 rounded-lg p-3">
+            <div className="flex justify-between text-sm">
+              <span>Career Transition Progress</span>
+              <span>{Math.round((stats.weeklyProgress / stats.weeklyGoal) * 100)}%</span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-2 mt-2">
+              <div 
+                className="bg-white rounded-full h-2 transition-all duration-500"
+                style={{ width: `${(stats.weeklyProgress / stats.weeklyGoal) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Strategic Alerts */}
+        {blockedTasks.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+              <h3 className="font-semibold text-amber-900">Strategic Alert</h3>
+            </div>
+            <p className="text-amber-800 text-sm mb-3">
+              You have {blockedTasks.length} tasks blocked by prerequisite skills. Consider focusing on foundations first.
+            </p>
+            <button 
+              onClick={() => {
+                setChatOpen(true);
+                setTimeout(() => {
+                  setNewMessage("I see I have blocked tasks. Should I adjust my priorities?");
+                  messageInputRef.current?.focus();
+                }, 300);
+              }}
+              className="bg-amber-600 text-white px-3 py-1 rounded-md text-sm hover:bg-amber-700"
+            >
+              Discuss Strategy
+            </button>
+          </div>
+        )}
+
+        {/* Today's Priority Tasks */}
+        <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Target className="w-5 h-5 text-green-600" />
+              <h3 className="font-semibold text-gray-900">Today's Morning Focus</h3>
+              <span className="text-sm text-gray-500">({morningTasks.length} high-impact tasks)</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {morningTasks.map(task => (
+              <div key={task.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => toggleTask(task.id)} className="text-green-600 hover:text-green-700">
+                      {task.completed ? <CheckCircle className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                    </button>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{task.text}</p>
+                      <p className="text-sm text-gray-600">{task.skillArea} • {task.estimatedTime}</p>
+                      {task.blockers.length > 0 && (
+                        <div className="mt-1">
+                          <span className="text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                            Blocked: {task.blockers[0]}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => startFocusSession(task)}
+                    disabled={task.blockers.length > 0}
+                    className="bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Play className="w-4 h-4" /> Start
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Industry Intelligence with Research Links */}
+        <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 text-purple-600" />
+              <h3 className="font-semibold text-gray-900">Industry Intelligence</h3>
+            </div>
+            <button 
+              onClick={() => {
+                setChatOpen(true);
+                setTimeout(() => {
+                  setNewMessage("What industry trends should I be aware of this week?");
+                  messageInputRef.current?.focus();
+                }, 300);
+              }}
+              className="text-sm text-purple-600 hover:text-purple-700"
+            >
+              Discuss Trends
+            </button>
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-900 mb-2">📚 Research These Today (15 min)</h4>
+            <ul className="text-sm text-blue-800 space-y-2">
+              <li>• <a href="https://www.linkedin.com/business/learning/blog/learning-and-development/most-in-demand-skills" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">LinkedIn Skills Report 2024</a></li>
+              <li>• <a href="https://www.kaggle.com/learn" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">Kaggle Learn - Latest Courses</a></li>
+              <li>• <a href="https://towardsdatascience.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">Towards Data Science - Medium</a></li>
+              <li>• <a href="https://www.indeed.com/jobs?q=data+analyst&l=" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">Indeed - Data Analyst Trends</a></li>
+            </ul>
+            <p className="text-xs text-blue-700 mt-3">
+              💡 After browsing, chat with me about what you learned and how it affects your priorities
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 text-center">
+            <div className="text-2xl font-bold text-blue-600">{stats.streak}</div>
+            <div className="text-sm text-gray-600">Day Streak</div>
+          </div>
+          <div className="bg-white rounded-lg p-4 border border-gray-200 text-center">
+            <div className="text-2xl font-bold text-purple-600">{stats.totalPoints}</div>
+            <div className="text-sm text-gray-600">Progress Points</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Navigation with chat button
+  const tabs = [
+    { id: 'briefing', label: 'Morning Briefing', icon: Coffee },
+    { id: 'focus', label: 'Focus Session', icon: Target },
+    { id: 'tasks', label: 'Tasks', icon: CheckCircle },
+    { id: 'skills', label: 'Skills', icon: TrendingUp }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Career Transition Coach</h1>
+              <p className="text-sm text-gray-600">Data & Insights Strategist Path</p>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-600" />
+                <span className="font-medium">{stats.totalPoints} pts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-yellow-600" />
+                <span className="font-medium">{stats.streak} days</span>
+              </div>
+              <button 
+                onClick={() => setChatOpen(true)}
+                className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Coach
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4">
+          <nav className="flex space-x-8">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {activeTab === 'briefing' && <MorningBriefing />}
+        {activeTab === 'focus' && <div>Focus Session View</div>}
+        {activeTab === 'tasks' && <div>Tasks View</div>}
+        {activeTab === 'skills' && <div>Skills View</div>}
+      </div>
+
+      {/* Chat Panel */}
+      <ChatPanel />
+
+      {/* Chat Toggle Button (when closed) */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 hover:scale-110"
+        >
+          <MessageCircle className="w-6 h-6" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default CareerCoach;
